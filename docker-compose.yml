@@ -1,4 +1,4 @@
-name: neurobox
+﻿name: neurobox
 
 services:
   postgres:
@@ -49,7 +49,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       postgres: { condition: service_healthy }
-      redis:    { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [nb_net]
     ports:
       - "127.0.0.1:8092:8092"
@@ -72,11 +72,12 @@ services:
     restart: always
     env_file: .env
     environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-neurobox}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-neurobox}
       BACKEND_URL: http://backend:8092
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       backend: { condition: service_healthy }
-      redis:   { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [nb_net]
     healthcheck:
       test: ["CMD", "python", "/app/scripts/healthcheck.py"]
@@ -101,8 +102,8 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       postgres: { condition: service_healthy }
-      redis:    { condition: service_healthy }
-      backend:  { condition: service_healthy }
+      redis: { condition: service_healthy }
+      backend: { condition: service_healthy }
     networks: [nb_net]
     healthcheck:
       test: ["CMD", "python", "/app/scripts/healthcheck.py"]
@@ -123,6 +124,7 @@ services:
     restart: always
     env_file: .env
     environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-neurobox}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-neurobox}
       BACKEND_URL: http://backend:8092
       ADMIN_PANEL_PORT: "8091"
     depends_on:
