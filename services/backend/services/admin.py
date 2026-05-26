@@ -892,22 +892,31 @@ async def log_admin_audit(
     admin_user_id: int | None = None,
     admin_login: str | None = None,
     admin_role: str | None = None,
+    ip: str | None = None,
 ):
+    details_payload = dict(details or {})
+    if entity_type and "entity_type" not in details_payload:
+        details_payload["entity_type"] = entity_type
+    if entity_id and "entity_id" not in details_payload:
+        details_payload["entity_id"] = entity_id
+    if admin_role and "admin_role" not in details_payload:
+        details_payload["admin_role"] = admin_role
+    if ip and "ip" not in details_payload:
+        details_payload["ip"] = ip
+    target = entity_id or entity_type
+    if entity_type and entity_id:
+        target = f"{entity_type}:{entity_id}"
+    admin_user = admin_login or (str(admin_tg_id) if admin_tg_id is not None else None)
     async with get_session() as session:
         await session.execute(
             text("""INSERT INTO admin_audit_log (
-                   bot_identifier, action, entity_type, entity_id, details,
-                   admin_user_id, admin_login, admin_role
+                   action, admin_user, target, details
                )
-               VALUES (:bot_identifier, :action, :entity_type, :entity_id, :details, :admin_user_id, :admin_login, :admin_role)"""),
+               VALUES (:action, :admin_user, :target, :details)"""),
             {
-                "bot_identifier": _bot_id(),
                 "action": action,
-                "entity_type": entity_type,
-                "entity_id": entity_id,
-                "details": __import__("json").dumps(details) if details else None,
-                "admin_user_id": admin_user_id,
-                "admin_login": admin_login,
-                "admin_role": admin_role,
+                "admin_user": admin_user,
+                "target": target,
+                "details": __import__("json").dumps(details_payload) if details_payload else None,
             },
         )

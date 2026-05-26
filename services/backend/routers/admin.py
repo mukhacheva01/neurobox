@@ -1,6 +1,7 @@
 """FastAPI router: все эндпоинты Admin API."""
 import csv
 import io
+import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -54,19 +55,27 @@ async def login(body: schemas.LoginRequest, request: Request):
     if not _login_allowed(ip):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
-    expected_login = (settings.admin_login or "admin").strip()
-    expected_password = (settings.admin_password or "").strip()
+    expected_login = (settings.admin_login or os.environ.get("ADMIN_PANEL_USER") or "admin").strip()
+    expected_password = (settings.admin_password or os.environ.get("ADMIN_PANEL_PASSWORD") or "").strip()
     if not expected_password or body.login.strip() != expected_login or body.password != expected_password:
         _login_failed(ip)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if body.otp:
-        totp_secret = (getattr(settings, "admin_panel_totp_secret", "") or "").strip()
-        if totp_secret:
-            import pyotp
-            if not pyotp.TOTP(totp_secret).verify(body.otp, valid_window=1):
-                _login_failed(ip)
-                raise HTTPException(status_code=401, detail="Invalid OTP")
+    totp_secret = (getattr(settings, "admin_panel_totp_secret", "") or os.environ.get("ADMIN_PANEL_TOTP_SECRET") or "").strip()
+    if totp_secret:
+        if not body.otp:
+            return schemas.LoginResponse(
+                token=None,
+                admin_user_id=None,
+                admin_login=expected_login,
+                admin_role="owner",
+                admin_tg_id=None,
+                otp_required=True,
+            )
+        import pyotp
+        if not pyotp.TOTP(totp_secret).verify(body.otp, valid_window=1):
+            _login_failed(ip)
+            raise HTTPException(status_code=401, detail="Invalid OTP")
 
     _login_succeeded(ip)
     admin_tg_id = (settings.admin_tg_id_list or [None])[0] if getattr(settings, "admin_tg_id_list", None) else None
@@ -77,11 +86,11 @@ async def login(body: schemas.LoginRequest, request: Request):
             ttl_sec=ttl,
             admin_user_id=None,
             admin_login=expected_login,
-            admin_role="superadmin",
+            admin_role="owner",
         ),
         admin_user_id=None,
         admin_login=expected_login,
-        admin_role="superadmin",
+        admin_role="owner",
         admin_tg_id=admin_tg_id,
     )
 
@@ -99,6 +108,24 @@ def _audit_meta(payload: dict) -> dict:
 async def get_stats(period: str = Query("week", regex="^(day|week|month|year)$"), _: dict = Depends(require_api_key)):
     data = await service.get_stats(period)
     return schemas.StatsResponse(**data)
+
+
+@router.post("/audit/log")
+async def create_audit_log(body: schemas.AuditLogRequest, _: dict = Depends(require_api_key)):
+    admin = _
+    meta = _audit_meta(admin)
+    await service.log_admin_audit(
+        meta["admin_tg_id"],
+        body.action,
+        body.entity_type,
+        body.entity_id,
+        body.details,
+        meta["admin_user_id"],
+        meta["admin_login"],
+        meta["admin_role"],
+        body.ip,
+    )
+    return {"success": True}
 
 
 @router.get("/stats/chart", response_model=schemas.ChartResponse)

@@ -1,14 +1,12 @@
-"""DB-backed auth, RBAC and optional TOTP for Flask admin panel."""
+"""Auth, RBAC and session helpers for Flask admin panel."""
 from __future__ import annotations
 
-import os
 from functools import wraps
 
-import pyotp
+import httpx
 from flask import redirect, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
 
-from services.admin.db import get_conn
+from services.admin.backend_client import post_json
 
 ROLE_VIEWER = "viewer"
 ROLE_SUPPORT = "support"
@@ -18,108 +16,49 @@ ALL_ROLES = {ROLE_VIEWER, ROLE_SUPPORT, ROLE_ADMIN, ROLE_OWNER}
 
 
 def ensure_admin_bootstrap() -> None:
-    login = (os.environ.get("ADMIN_PANEL_USER", "admin") or "admin").strip()
-    password = (os.environ.get("ADMIN_PANEL_PASSWORD", "") or "").strip()
-    role = (os.environ.get("ADMIN_PANEL_BOOTSTRAP_ROLE", ROLE_OWNER) or ROLE_OWNER).strip().lower()
-    totp_secret = (os.environ.get("ADMIN_PANEL_TOTP_SECRET", "") or "").strip()
-    tg_id_raw = (os.environ.get("ADMIN_PANEL_BOOTSTRAP_TG_ID", "") or "").strip()
-    if not password:
-        return
-    if role not in ALL_ROLES:
-        role = ROLE_OWNER
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS admin_users (
-                id BIGSERIAL PRIMARY KEY,
-                login VARCHAR(80) NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                role VARCHAR(20) NOT NULL DEFAULT 'admin',
-                tg_id BIGINT,
-                totp_secret VARCHAR(64),
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                last_login_at TIMESTAMPTZ
-            )
-            """
-        )
-        cur.execute("SELECT id FROM admin_users WHERE login = %s", (login,))
-        row = cur.fetchone()
-        tg_id = int(tg_id_raw) if tg_id_raw.isdigit() else None
-        if not row:
-            cur.execute(
-                """
-                INSERT INTO admin_users (login, password_hash, role, tg_id, totp_secret, is_active)
-                VALUES (%s, %s, %s, %s, %s, TRUE)
-                """,
-                (
-                    login,
-                    generate_password_hash(password),
-                    role,
-                    tg_id,
-                    totp_secret or None,
-                ),
-            )
-        else:
-            cur.execute(
-                """
-                UPDATE admin_users
-                SET password_hash = %s,
-                    role = %s,
-                    tg_id = %s,
-                    totp_secret = %s,
-                    is_active = TRUE,
-                    updated_at = NOW()
-                WHERE id = %s
-                """,
-                (
-                    generate_password_hash(password),
-                    role,
-                    tg_id,
-                    totp_secret or None,
-                    row["id"],
-                ),
-            )
-        conn.commit()
-    finally:
-        conn.close()
+    """Bootstrap now belongs to backend auth config."""
+    return None
 
 
 def authenticate_admin(login: str, password: str, otp: str | None = None) -> dict | None:
-    ensure_admin_bootstrap()
-    conn = get_conn()
     try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT id, login, password_hash, role, tg_id, totp_secret, is_active
-            FROM admin_users
-            WHERE login = %s
-            """,
-            (login,),
+        response = post_json(
+            "/api/v1/admin/auth/login",
+            payload={
+                "login": login,
+                "password": password,
+                "otp": otp,
+            },
         )
-        row = cur.fetchone()
-        if not row or not row["is_active"]:
-            return None
-        if not check_password_hash(row["password_hash"], password):
-            return None
-        secret = (row.get("totp_secret") or "").strip()
-        if secret:
-            if not otp:
-                return {"otp_required": True, "login": row["login"]}
-            try:
-                if not pyotp.TOTP(secret).verify(otp, valid_window=1):
-                    return None
-            except Exception:
-                return None
-        cur.execute("UPDATE admin_users SET last_login_at = NOW(), updated_at = NOW() WHERE id = %s", (row["id"],))
-        conn.commit()
-        return dict(row)
-    finally:
-        conn.close()
+    except httpx.HTTPError:
+        return None
+
+    if response.status_code == 429:
+        return {"rate_limited": True}
+    if response.status_code == 401:
+        return None
+    try:
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+
+    if payload.get("otp_required"):
+        return {"otp_required": True, "login": login}
+
+    role = (payload.get("admin_role") or ROLE_OWNER).strip().lower()
+    if role not in ALL_ROLES:
+        role = ROLE_OWNER if role == "superadmin" else ROLE_VIEWER
+    token = (payload.get("token") or "").strip()
+    if not token:
+        return None
+    return {
+        "id": payload.get("admin_user_id"),
+        "login": payload.get("admin_login") or login,
+        "role": role,
+        "tg_id": payload.get("admin_tg_id"),
+        "token": token,
+    }
 
 
 def current_admin() -> dict:
@@ -127,6 +66,7 @@ def current_admin() -> dict:
         "id": session.get("admin_user_id"),
         "login": session.get("admin_login"),
         "role": session.get("admin_role", ROLE_VIEWER),
+        "token": session.get("admin_api_token"),
     }
 
 

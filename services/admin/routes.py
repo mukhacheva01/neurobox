@@ -923,13 +923,12 @@ def audit_log():
             where.append("action = %s")
             params.append(action_filter)
         if entity_filter:
-            where.append("entity_type = %s")
+            where.append("details ->> 'entity_type' = %s")
             params.append(entity_filter)
         where_sql = " AND ".join(where)
         cur.execute(
             f"""
-            SELECT id, action, entity_type, entity_id, details, ip, created_at,
-                   admin_user_id, admin_login, admin_role
+            SELECT id, action, admin_user, target, details, created_at
             FROM admin_audit_log
             WHERE {where_sql}
             ORDER BY created_at DESC
@@ -937,7 +936,30 @@ def audit_log():
             """,
             params,
         )
-        rows = cur.fetchall()
+        raw_rows = cur.fetchall()
+        rows = []
+        for row in raw_rows:
+            details = row.get("details") if isinstance(row.get("details"), dict) else {}
+            target = row.get("target")
+            entity_type_value = details.get("entity_type")
+            entity_id_value = details.get("entity_id")
+            if not entity_type_value and isinstance(target, str) and ":" in target:
+                entity_type_value, entity_id_value = target.split(":", 1)
+            elif not entity_id_value:
+                entity_id_value = target
+            rows.append(
+                {
+                    "id": row.get("id"),
+                    "action": row.get("action"),
+                    "entity_type": entity_type_value,
+                    "entity_id": entity_id_value,
+                    "ip": details.get("ip"),
+                    "created_at": row.get("created_at"),
+                    "admin_login": row.get("admin_user"),
+                    "admin_role": details.get("admin_role"),
+                    "details": details or None,
+                }
+            )
         return render_template("audit.html", rows=rows, action_filter=action_filter, entity_filter=entity_filter)
     finally:
         conn.close()

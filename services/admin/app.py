@@ -1,4 +1,4 @@
-"""Универсальная веб-админка для сети Telegram-ботов (Flask)."""
+"""Universal web admin panel for the Telegram bot network (Flask)."""
 import os
 
 from flask import Flask, redirect, render_template, request, session, url_for
@@ -15,12 +15,12 @@ from services.admin.config import ADMIN_PANEL_PORT, BOT_DISPLAY_NAME, BOT_TYPE
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
 _secret = os.environ.get("ADMIN_PANEL_SECRET", "").strip()
 if not _secret or _secret in ("change-me-in-production", "change-me", "dev-only-change-in-production"):
-    raise ValueError("ADMIN_PANEL_SECRET должен быть задан и не быть дефолтным в production")
+    raise ValueError("ADMIN_PANEL_SECRET must be set and must not use a default value in production")
 app.secret_key = _secret
 app.config["ADMIN_USER"] = os.environ.get("ADMIN_PANEL_USER", "admin").strip() or "admin"
 app.config["ADMIN_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "").strip()
 if not app.config["ADMIN_PASSWORD"]:
-    raise ValueError("ADMIN_PANEL_PASSWORD должен быть задан в production")
+    raise ValueError("ADMIN_PANEL_PASSWORD must be set in production")
 app.config["BOT_TYPE"] = BOT_TYPE
 app.config["BOT_DISPLAY_NAME"] = BOT_DISPLAY_NAME
 ensure_admin_bootstrap()
@@ -47,6 +47,7 @@ _LOGIN_WINDOW_SEC = 900
 
 def _login_failed_attempt(ip: str) -> None:
     import time
+
     now = time.monotonic()
     cutoff = now - _LOGIN_WINDOW_SEC
     attempts = _login_attempts.get(ip) or []
@@ -57,6 +58,7 @@ def _login_failed_attempt(ip: str) -> None:
 
 def _login_rate_limit_exceeded(ip: str) -> bool:
     import time
+
     cutoff = time.monotonic() - _LOGIN_WINDOW_SEC
     attempts = _login_attempts.get(ip) or []
     attempts = [t for t in attempts if t > cutoff]
@@ -73,15 +75,18 @@ def login():
         password = request.form.get("password", "")
         otp = request.form.get("otp", "").strip()
         auth = authenticate_admin(user, password, otp or None)
-        if auth and not auth.get("otp_required"):
+        if auth and not auth.get("otp_required") and not auth.get("rate_limited"):
             session["admin_logged_in"] = True
             session["admin_user_id"] = auth["id"]
             session["admin_login"] = auth["login"]
             session["admin_role"] = auth["role"]
+            session["admin_api_token"] = auth["token"]
             next_url = request.args.get("next") or url_for("dashboard")
             return redirect(next_url)
         if auth and auth.get("otp_required"):
             return render_template("login.html", error="Нужен код 2FA", otp_required=True, login_prefill=user)
+        if auth and auth.get("rate_limited"):
+            return render_template("login.html", error="Слишком много попыток. Подождите 15 минут.", otp_required=False, login_prefill=user)
         _login_failed_attempt(ip)
         return render_template("login.html", error="Неверный логин, пароль или код", otp_required=False, login_prefill=user)
     return render_template("login.html", error=None, otp_required=False, login_prefill="")
@@ -89,7 +94,7 @@ def login():
 
 @app.route("/logout")
 def logout():
-    for key in ("admin_logged_in", "admin_user_id", "admin_login", "admin_role"):
+    for key in ("admin_logged_in", "admin_user_id", "admin_login", "admin_role", "admin_api_token"):
         session.pop(key, None)
     return redirect(url_for("login"))
 

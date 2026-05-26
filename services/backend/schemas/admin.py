@@ -12,11 +12,21 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    token: str
+    token: str | None = None
     admin_user_id: int | None = None
     admin_login: str | None = None
     admin_role: str | None = None
     admin_tg_id: int | None = None
+    otp_required: bool = False
+
+
+class AuditLogRequest(BaseModel):
+    bot_identifier: str | None = None
+    action: str
+    entity_type: str | None = None
+    entity_id: str | None = None
+    details: dict | None = None
+    ip: str | None = None
 
 
 # --- Stats ---
