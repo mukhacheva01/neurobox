@@ -5,6 +5,7 @@ import os
 
 from flask import Response, flash, redirect, render_template, request, url_for
 
+from services.admin import routes_ops
 from services.admin.access import current_admin
 from services.admin.audit import log_action
 from services.admin.db import get_conn
@@ -912,6 +913,7 @@ def user_detail(user_id):
 
 
 def audit_log():
+    return routes_ops.audit_log()
     action_filter = (request.args.get("action") or "").strip()
     entity_filter = (request.args.get("entity_type") or "").strip()
     conn = get_conn()
@@ -966,6 +968,7 @@ def audit_log():
 
 
 def feedback_list():
+    return routes_ops.feedback_list()
     status_filter = (request.args.get("status") or "").strip()
     conn = get_conn()
     try:
@@ -994,6 +997,7 @@ def feedback_list():
 
 
 def feedback_action(feedback_id: int):
+    return routes_ops.feedback_action(feedback_id)
     action = (request.form.get("action") or "").strip()
     admin_note = (request.form.get("admin_note") or "").strip()[:2000]
     status = (request.form.get("status") or "").strip()
@@ -1027,6 +1031,7 @@ def feedback_action(feedback_id: int):
 
 
 def content_texts():
+    return routes_ops.content_texts()
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -1063,6 +1068,7 @@ def content_texts():
 
 
 def tariffs_list():
+    return routes_ops.tariffs_list()
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -1122,6 +1128,7 @@ def _admin_ip():
 
 
 def user_action(user_id):
+    return routes_ops.user_action(user_id)
     action = request.form.get("action")
     conn = get_conn()
     try:
