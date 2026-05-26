@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.bak*
+
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+
+# Caches
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Backups
+backups/
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code
+.claude/

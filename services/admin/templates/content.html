@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Тексты{% endblock %}
+{% block content %}
+<h1>✍️ Управление текстами</h1>
+{% for r in rows %}
+<div class="card">
+  <form method="post">
+    <input type="hidden" name="key" value="{{ r.key }}">
+    <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem;">
+      <strong>{{ r.key }}</strong>
+      <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" name="enabled" {{ 'checked' if r.enabled }}> enabled</label>
+    </div>
+    <div class="form-row" style="margin-bottom:.5rem;">
+      <input type="text" name="title" value="{{ r.title }}" placeholder="Заголовок" style="flex:1;">
+      <input type="text" name="description" value="{{ r.description or '' }}" placeholder="Описание" style="flex:2;">
+    </div>
+    <textarea name="value" rows="8" style="width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:.75rem;">{{ r.value }}</textarea>
+    <div style="margin-top:.75rem;">
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+      <span style="color:var(--muted); font-size:.8rem; margin-left:.5rem;">Обновлено: {{ r.updated_at.strftime('%d.%m %H:%M') if r.updated_at else '—' }}</span>
+    </div>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}

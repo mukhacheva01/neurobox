@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>{% block title %}Админка{% endblock %} — {{ bot_display_name|default('Админка') }}</title>
+  <style>
+    :root {
+      --bg: #0b0b0f; --card: #16161b; --card-hover: #1c1c22; --border: #27272f;
+      --text: #e4e4e7; --muted: #71717a; --accent: #6366f1; --accent-hover: #818cf8;
+      --danger: #ef4444; --success: #22c55e; --warn: #f59e0b;
+      --radius: 10px; --radius-sm: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+      --shadow-lg: 0 4px 14px rgba(0,0,0,.5);
+      --transition: .18s ease;
+    }
+    /* Системная тема, если пользователь ещё не переключал */
+    @media (prefers-color-scheme: light) {
+      html:not([data-theme]) {
+        --bg: #f4f4f5; --card: #fff; --card-hover: #fafafa; --border: #e4e4e7;
+        --text: #18181b; --muted: #71717a;
+        --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+        --shadow-lg: 0 4px 14px rgba(0,0,0,.1);
+      }
+    }
+    [data-theme="light"] {
+      --bg: #f4f4f5; --card: #fff; --card-hover: #fafafa; --border: #e4e4e7;
+      --text: #18181b; --muted: #71717a;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-lg: 0 4px 14px rgba(0,0,0,.1);
+    }
+    [data-theme="dark"] {
+      --bg: #0b0b0f; --card: #16161b; --card-hover: #1c1c22; --border: #27272f;
+      --text: #e4e4e7; --muted: #71717a;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+      --shadow-lg: 0 4px 14px rgba(0,0,0,.5);
+    }
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg); color: var(--text); margin: 0; min-height: 100dvh;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+      padding-top: env(safe-area-inset-top, 0);
+      -webkit-font-smoothing: antialiased;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: var(--accent-hover); }
+    h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 1rem; }
+    h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 .75rem; }
+    h3 { font-size: 1rem; font-weight: 600; margin: 0 0 .75rem; color: var(--muted); }
+
+    /* ── Layout ── */
+    .wrap {
+      max-width: 1200px; margin: 0 auto;
+      padding: 1rem;
+      padding-left: max(1rem, env(safe-area-inset-left));
+      padding-right: max(1rem, env(safe-area-inset-right));
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--card); border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: .6rem 1rem;
+      display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+    nav .brand {
+      font-weight: 700; font-size: 1rem; color: var(--text); margin-right: .25rem;
+      white-space: nowrap;
+    }
+    .nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; flex: 1; }
+    .nav-links a {
+      padding: .5rem .75rem; border-radius: var(--radius-sm); color: var(--muted);
+      font-size: .85rem; font-weight: 500; transition: all var(--transition); white-space: nowrap;
+      min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .nav-links a:hover, .nav-links a.active { background: var(--border); color: var(--text); text-decoration: none; }
+    .nav-right { display: flex; align-items: center; gap: .4rem; margin-left: auto; }
+    .nav-right a { font-size: .85rem; color: var(--muted); padding: .35rem .6rem; border-radius: var(--radius-sm); }
+    .nav-right a:hover { background: var(--border); color: var(--text); text-decoration: none; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1rem 1.15rem; margin-bottom: 1rem; box-shadow: var(--shadow);
+      transition: box-shadow var(--transition);
+    }
+
+    /* ── Grid ── */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: .6rem; }
+    .stat { text-align: center; padding: .75rem .5rem; }
+    .stat .n { font-size: 1.3rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+    .stat .l { font-size: .75rem; color: var(--muted); margin-top: .2rem; line-height: 1.3; }
+    .stat .d { font-size: .7rem; margin-top: .1rem; }
+    .stat .d.up { color: var(--success); }
+    .stat .d.down { color: var(--danger); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -1.15rem; padding: 0 1.15rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { padding: .55rem .65rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; white-space: nowrap; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+    tr { transition: background var(--transition); }
+    tbody tr:hover { background: var(--card-hover); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: .5rem 1rem; border-radius: var(--radius-sm); border: none;
+      cursor: pointer; font-size: .85rem; font-weight: 500; white-space: nowrap;
+      transition: all var(--transition); -webkit-appearance: none; line-height: 1.4;
+      min-height: 44px; min-width: 44px;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: .85; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: var(--card-hover); }
+    .btn-sm { padding: .3rem .55rem; font-size: .78rem; min-height: 30px; }
+
+    /* ── Forms ── */
+    input, select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: .45rem .65rem; border-radius: var(--radius-sm); font-size: 16px;
+      min-width: 0; min-height: 36px; transition: border-color var(--transition);
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    .form-row {
+      display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
+    }
+
+    /* ── Flash ── */
+    .flash { padding: .6rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: .9rem; }
+    .flash.success { background: #14532d; color: #bbf7d0; }
+    .flash.error { background: #7f1d1d; color: #fecaca; }
+    [data-theme="light"] .flash.success { background: #dcfce7; color: #166534; }
+    [data-theme="light"] .flash.error { background: #fee2e2; color: #991b1b; }
+
+    /* ── Theme toggle ── */
+    .theme-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: .3rem .5rem; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: .9rem; transition: all var(--transition); line-height: 1;
+    }
+    .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Mobile: hamburger ── */
+    .nav-toggle { display: none; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: .3rem; line-height: 1; }
+
+    /* ── Mobile: нижняя таб-панель (tab bar) ── */
+    .nav-bottom {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--card); border-top: 1px solid var(--border);
+      padding: .4rem 0; padding-bottom: max(.4rem, env(safe-area-inset-bottom));
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .nav-bottom a {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: .4rem .25rem; color: var(--muted); font-size: .7rem; text-decoration: none;
+      min-height: 44px; min-width: 44px; transition: color var(--transition);
+    }
+    .nav-bottom a:hover, .nav-bottom a.active { color: var(--accent); }
+    .nav-bottom a span.icon { font-size: 1.35rem; margin-bottom: .15rem; }
+
+    @media (max-width: 767px) {
+      body { font-size: 16px; padding-bottom: 60px; }
+      h1 { font-size: 1.3rem; }
+      .wrap { padding: .75rem; padding-left: max(.75rem, env(safe-area-inset-left)); padding-right: max(.75rem, env(safe-area-inset-right)); }
+
+      .nav-toggle { display: block; min-height: 44px; min-width: 44px; }
+      nav .nav-links:not(.open) { display: none !important; }
+      nav .nav-links.open { display: flex !important; flex-basis: 100%; flex-direction: column; gap: .15rem; padding-top: .5rem; }
+      .nav-bottom { display: flex; align-items: stretch; justify-content: space-around; }
+
+      .grid { grid-template-columns: 1fr !important; gap: .5rem; }
+      .stat { min-height: 44px; padding: .85rem .5rem; }
+      .stat .n { font-size: 1.15rem; }
+
+      .table-wrap { margin: 0 -1rem; padding: 0 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table { font-size: .8rem; min-width: 600px; }
+      th, td { padding: .5rem .5rem; min-height: 44px; }
+      th:first-child, td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; }
+
+      .btn { padding: .5rem .85rem; font-size: .9rem; min-height: 44px; }
+      .form-row { gap: .4rem; }
+
+      .card { padding: .85rem 1rem; border-radius: 8px; }
+    }
+
+    @media (max-width: 640px) {
+      .wrap { padding: .6rem; }
+    }
+
+    @media (min-width: 641px) and (max-width: 900px) {
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    }
+
+    @media (min-width: 901px) {
+      .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+    .pagination .info { color: var(--muted); font-size: .85rem; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% if session.get('admin_logged_in') %}
+  <nav>
+    <span class="brand">{{ bot_display_name|default('Админка') }}</span>
+    <button class="nav-toggle" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="Меню" type="button">☰</button>
+    <div class="nav-links">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">📊 Дашборд</a>
+      <a href="{{ url_for('stats') }}" class="{{ 'active' if request.endpoint == 'stats' }}">📈 Статистика</a>
+      <a href="{{ url_for('payments_list') }}" class="{{ 'active' if request.endpoint == 'payments_list' }}">💳 Оплаты</a>
+      <a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint == 'users_list' }}">👥 Юзеры</a>
+      <a href="{{ url_for('feedback_list') }}" class="{{ 'active' if request.endpoint == 'feedback_list' }}">💬 Поддержка</a>
+      <a href="{{ url_for('errors') }}" class="{{ 'active' if request.endpoint == 'errors' }}">🐛 Ошибки</a>
+      {% if admin_role in [role_admin, role_owner] %}
+      <a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint == 'audit_log' }}">🧾 Аудит</a>
+      <a href="{{ url_for('content_texts') }}" class="{{ 'active' if request.endpoint == 'content_texts' }}">✍️ Тексты</a>
+      <a href="{{ url_for('tariffs_list') }}" class="{{ 'active' if request.endpoint == 'tariffs_list' }}">💸 Тарифы</a>
+      {% endif %}
+    </div>
+    <div class="nav-right">
+      <span style="font-size:.8rem; color:var(--muted);">{{ admin_login }} · {{ admin_role }}</span>
+      <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему" type="button" aria-label="Тема">🌓</button>
+      <a href="{{ url_for('logout') }}">Выход</a>
+    </div>
+  </nav>
+  <nav class="nav-bottom" aria-label="Основные разделы">
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}"><span class="icon">🏠</span>Дашборд</a>
+    <a href="{{ url_for('stats') }}" class="{{ 'active' if request.endpoint == 'stats' }}"><span class="icon">📈</span>Статистика</a>
+    <a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint == 'users_list' }}"><span class="icon">👥</span>Юзеры</a>
+    <a href="{{ url_for('payments_list') }}" class="{{ 'active' if request.endpoint == 'payments_list' }}"><span class="icon">💳</span>Оплаты</a>
+    <a href="{{ url_for('feedback_list') }}" class="{{ 'active' if request.endpoint == 'feedback_list' }}"><span class="icon">💬</span>Support</a>
+  </nav>
+  {% endif %}
+  <div class="wrap">
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ category or 'success' }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </div>
+  <script>
+    function toggleTheme() {
+      var h = document.documentElement;
+      var next = (h.dataset.theme === 'light' ? 'dark' : 'light');
+      h.dataset.theme = next;
+      localStorage.setItem('admin_theme', next);
+    }
+    (function applyTheme() {
+      var saved = localStorage.getItem('admin_theme');
+      if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+      else document.documentElement.removeAttribute('data-theme');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block head %}
+<style>
+  .dashboard-block {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1rem 1.15rem; margin-bottom: 1.25rem; box-shadow: var(--shadow);
+  }
+  .dashboard-block h3 { margin: 0 0 .85rem; }
+  .period-filter { display: flex; gap: .4rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+  .period-filter .label { color: var(--muted); font-size: .85rem; margin-right: .25rem; }
+  .period-filter a {
+    padding: .4rem .85rem; border-radius: 20px; background: var(--card); color: var(--muted);
+    border: 1px solid var(--border); font-size: .82rem; font-weight: 500;
+    transition: all var(--transition);
+  }
+  .period-filter a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .period-filter a.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .kpi-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+  .kpi-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: .9rem .75rem; text-align: center; box-shadow: var(--shadow);
+    transition: border-color var(--transition);
+  }
+  .kpi-item:hover { border-color: var(--accent); }
+  .kpi-item .val { font-size: 1.5rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .kpi-item .lab { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+
+  .alert-block { padding: .7rem 1rem; border-radius: var(--radius-sm); margin-bottom: .75rem; font-size: .88rem; }
+  .alert-block.danger { background: rgba(239,68,68,.12); border: 1px solid var(--danger); color: #fca5a5; }
+  .alert-block.warn { background: rgba(245,158,11,.12); border: 1px solid var(--warn); color: #fde68a; }
+  [data-theme="light"] .alert-block.danger { background: #fef2f2; color: #991b1b; }
+  [data-theme="light"] .alert-block.warn { background: #fffbeb; color: #92400e; }
+
+  .chart-container { position: relative; }
+  .activity-label { font-size: .72rem; color: var(--muted); margin-bottom: .3rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+  .activity-chart { display: flex; align-items: flex-end; gap: 2px; height: 70px; margin-bottom: .75rem; }
+  .activity-chart .bar {
+    flex: 1; min-width: 3px; background: var(--accent); border-radius: 3px 3px 0 0;
+    opacity: .65; transition: opacity var(--transition); cursor: help;
+  }
+  .activity-chart .bar:hover { opacity: 1; }
+
+  .trend-chart { display: flex; align-items: flex-end; gap: 1px; height: 50px; margin-bottom: .6rem; }
+  .trend-chart .bar {
+    flex: 1; min-width: 4px; background: var(--accent); border-radius: 3px 3px 0 0;
+    opacity: .7; transition: opacity var(--transition); cursor: help;
+  }
+  .trend-chart .bar:hover { opacity: 1; }
+
+  .top-err {
+    font-size: .82rem; color: var(--muted); margin: .3rem 0; padding: .3rem .5rem;
+    background: var(--bg); border-radius: var(--radius-sm);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+  }
+  .top-err strong { color: var(--danger); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .trend-caption { font-size: .7rem; color: var(--muted); margin-top: .2rem; }
+
+  @media (max-width: 640px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+    .kpi-item { padding: .7rem .5rem; }
+    .kpi-item .val { font-size: 1.25rem; }
+    .two-col { grid-template-columns: 1fr; }
+    .activity-chart { height: 55px; }
+    .dashboard-block { padding: .85rem; }
+  }
+  @media (min-width: 641px) and (max-width: 900px) {
+    .kpi-strip { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>📊 Дашборд</h1>
+
+<div class="period-filter">
+  <span class="label">Период:</span>
+  <a href="?period=day" class="{{ 'active' if period == 'day' }}">День</a>
+  <a href="?period=week" class="{{ 'active' if period == 'week' }}">Неделя</a>
+  <a href="?period=month" class="{{ 'active' if period == 'month' }}">Месяц</a>
+</div>
+
+{% if alerts %}
+<div class="dashboard-block">
+  <h3>⚠️ Требует внимания</h3>
+  {% for a in alerts %}
+  <div class="alert-block {{ a.type }}">{{ a.msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="kpi-strip">
+  <div class="kpi-item"><div class="val">{{ "%.0f"|format(pay_day_sum) }} ₽</div><div class="lab">Выручка сегодня</div></div>
+  <div class="kpi-item"><div class="val">{{ "%.0f"|format(arpu) }} ₽</div><div class="lab">ARPU ({{ 'день' if period == 'day' else ('неделю' if period == 'week' else 'месяц') }})</div></div>
+  <div class="kpi-item"><div class="val">{{ "%.0f"|format(arppu) }} ₽</div><div class="lab">ARPPU</div></div>
+  <div class="kpi-item"><div class="val">{{ conversion }}%</div><div class="lab">Конверсия в payers</div></div>
+  <div class="kpi-item"><div class="val">{{ active_today }}</div><div class="lab">Активных</div></div>
+  <div class="kpi-item"><div class="val">{{ dau }}/{{ wau }}/{{ mau }}</div><div class="lab">DAU/WAU/MAU</div></div>
+  <div class="kpi-item"><div class="val">{{ stickiness }}%</div><div class="lab">Stickiness</div></div>
+  <div class="kpi-item"><div class="val">{{ "%.0f"|format(margin_rub) }} ₽</div><div class="lab">Маржа за период</div></div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>👥 Пользователи</h3>
+    <div class="grid">
+      <div class="card stat"><div class="n">{{ users_day }}</div><div class="l">День</div></div>
+      <div class="card stat"><div class="n">{{ users_week }}</div><div class="l">Неделя</div>{% if users_delta %}<div class="d {{ 'up' if users_delta.startswith('+') else 'down' }}">{{ users_delta }}</div>{% endif %}</div>
+      <div class="card stat"><div class="n">{{ users_month }}</div><div class="l">Месяц</div></div>
+      <div class="card stat"><div class="n">{{ users_total }}</div><div class="l">Всего</div></div>
+      <div class="card stat"><div class="n">{{ active_today }}</div><div class="l">Активных</div></div>
+      <div class="card stat"><div class="n">{{ banned_total }}</div><div class="l">Забанено</div></div>
+    </div>
+  </div>
+
+  <div class="dashboard-block">
+    <h3>⚡ Генерации</h3>
+    <div class="grid">
+      <div class="card stat"><div class="n">{{ gen_day }}</div><div class="l">День</div></div>
+      <div class="card stat"><div class="n">{{ gen_week }}</div><div class="l">Неделя</div>{% if gen_delta %}<div class="d">{{ gen_delta }}</div>{% endif %}</div>
+      <div class="card stat"><div class="n">{{ gen_month }}</div><div class="l">Месяц</div></div>
+      <div class="card stat"><div class="n">{{ gen_total }}</div><div class="l">Всего</div></div>
+      <div class="card stat"><a href="{{ url_for('errors') }}" style="color: var(--danger);"><div class="n">{{ errors_week }}</div><div class="l">Ошибок ({{ errors_week_pct }}%)</div></a></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(avg_gen_time[0].avg_ms if avg_gen_time else 0) }}</div><div class="l">Ср. время мс</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>💳 Оплаты</h3>
+    <div class="grid">
+      <div class="card stat"><div class="n">{{ "%.0f"|format(pay_day_sum) }}₽</div><div class="l">День ({{ pay_day_cnt }})</div></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(pay_week_sum) }}₽</div><div class="l">Неделя ({{ pay_week_cnt }})</div>{% if pay_delta_sum %}<div class="d">{{ pay_delta_sum }}</div>{% endif %}</div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(pay_month_sum) }}₽</div><div class="l">Месяц ({{ pay_month_cnt }})</div></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(pay_total_sum) }}₽</div><div class="l">Всего ({{ pay_total_cnt }})</div></div>
+      <div class="card stat"><div class="n">{{ pay_pending_cnt }}</div><div class="l">Ожидают ({{ "%.0f"|format(pay_pending_sum) }}₽)</div></div>
+    </div>
+  </div>
+
+  <div class="dashboard-block">
+    <h3>🔁 Retention</h3>
+    <div class="grid">
+      <div class="card stat"><div class="n">{{ retention_1d }}%</div><div class="l">D1</div></div>
+      <div class="card stat"><div class="n">{{ retention_3d }}%</div><div class="l">D3</div></div>
+      <div class="card stat"><div class="n">{{ retention_7d }}%</div><div class="l">D7</div></div>
+    </div>
+    <h3 style="margin-top: 1rem;">👍 Оценки</h3>
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="card stat"><div class="n">{{ ratings_day_up }}/{{ ratings_day_down }}</div><div class="l">День</div></div>
+      <div class="card stat"><div class="n">{{ ratings_week_up }}/{{ ratings_week_down }}</div><div class="l">Неделя</div></div>
+      <div class="card stat"><div class="n">{{ ratings_month_up }}/{{ ratings_month_down }}</div><div class="l">Месяц</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>🧩 Сегменты</h3>
+    <div class="grid">
+      {% for key in ['free','trial','paid','churned','reactivated','blocked'] %}
+      <div class="card stat"><div class="n">{{ segment_counts.get(key, 0) }}</div><div class="l">{{ key }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="dashboard-block">
+    <h3>💸 Себестоимость</h3>
+    <div class="grid">
+      <div class="card stat"><div class="n">{{ "%.2f"|format(ai_cost_usd) }}$</div><div class="l">AI cost</div></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(ai_cost_rub) }} ₽</div><div class="l">AI cost RUB</div></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(infra_cost_rub) }} ₽</div><div class="l">Infra alloc</div></div>
+      <div class="card stat"><div class="n">{{ "%.0f"|format(margin_rub) }} ₽</div><div class="l">Маржа</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-block">
+  <h3>Последние оплаты <a href="{{ url_for('payments_list') }}" style="font-size:.82rem; float:right;">Все →</a></h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>User</th><th>Сумма</th><th>Пакет</th><th>Статус</th><th>Дата</th></tr></thead>
+    <tbody>
+    {% for p in last_payments %}
+    <tr>
+      <td><a href="{{ url_for('user_detail', user_id=p.user_id) }}">{{ p.user_id }}</a> {{ p.username or p.first_name or '' }}</td>
+      <td>{{ "%.0f"|format(p.amount_rub) }} ₽</td>
+      <td>{{ p.pack_name or '-' }}</td>
+      <td><span style="color: {{ 'var(--success)' if p.status == 'confirmed' else 'var(--warn)' }}">{{ p.status }}</span></td>
+      <td style="white-space:nowrap;">{{ (p.confirmed_at or p.created_at).strftime('%d.%m %H:%M') if (p.confirmed_at or p.created_at) else '-' }}</td>
+    </tr>
+    {% endfor %}
+    {% if not last_payments %}<tr><td colspan="5" style="color:var(--muted);">Нет платежей</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>🐛 Топ ошибок <a href="{{ url_for('errors') }}" style="font-size:.82rem; float:right;">Лог →</a></h3>
+    {% for e in top_errors[:5] %}
+    <div class="top-err" title="{{ e.err }}">{{ e.err }} <strong>({{ e.cnt }})</strong></div>
+    {% endfor %}
+    {% if not top_errors %}<p style="color: var(--muted); font-size:.85rem;">Нет ошибок за неделю</p>{% endif %}
+  </div>
+
+  <div class="dashboard-block">
+    <h3>🎯 Генерации по типу</h3>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));">
+      {% for r in requests_by_type %}
+      <div class="card stat"><div class="n">{{ r.cnt }}</div><div class="l">{{ r.task_type }}</div></div>
+      {% endfor %}
+      {% if not requests_by_type %}<div style="color:var(--muted); font-size:.85rem;">Нет данных</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>🏆 Популярные модели</h3>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));">
+      {% for r in requests_by_model[:10] %}
+      <div class="card stat"><div class="n">{{ r.cnt }}</div><div class="l">{{ r.model[:18] }}{% if r.model|length > 18 %}…{% endif %}</div></div>
+      {% endfor %}
+      {% if not requests_by_model %}<div style="color:var(--muted); font-size:.85rem;">Нет данных</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="dashboard-block">
+    <h3>⏱ Время генерации / Промо / Рефералы</h3>
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));">
+      {% for r in avg_gen_time[:6] %}
+      <div class="card stat"><div class="n">{{ r.avg_ms }}</div><div class="l">{{ r.task_type }} мс</div></div>
+      {% endfor %}
+      <div class="card stat"><div class="n">{{ promo_uses_cnt }}</div><div class="l">Промо (30д)</div></div>
+      <div class="card stat"><div class="n">{{ promo_codes_cnt }}</div><div class="l">Промокодов</div></div>
+      <div class="card stat"><div class="n">{{ referred_total }}</div><div class="l">Рефералов</div></div>
+      <div class="card stat"><div class="n">{{ referred_paid }}</div><div class="l">Реф. оплат</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="dashboard-block">
+    <h3>🚦 Источники</h3>
+    {% for s in top_sources %}
+    <div class="top-err">{{ s.source }} <strong>({{ s.count }})</strong></div>
+    {% endfor %}
+    {% if not top_sources %}<p style="color: var(--muted); font-size:.85rem;">Нет данных по источникам</p>{% endif %}
+  </div>
+
+  <div class="dashboard-block">
+    <h3>💳 Платежи по провайдерам</h3>
+    {% for p in provider_split %}
+    <div class="top-err">{{ p.provider }} <strong>{{ "%.0f"|format(p.sum_rub) }} ₽ · {{ p.count }}</strong></div>
+    {% endfor %}
+    {% if not provider_split %}<p style="color: var(--muted); font-size:.85rem;">Нет confirmed-платежей</p>{% endif %}
+  </div>
+</div>
+
+<div class="dashboard-block">
+  <h3>📈 Тренды (14 дней)</h3>
+  <div class="chart-container">
+    <div class="activity-label">Регистрации</div>
+    <div class="trend-chart">
+      {% for t in trends %}
+      <div class="bar" style="height: {{ [4, (100 * t.users / max_trend_users)|round(0) if max_trend_users else 0]|max }}%" title="{{ t.day }}: {{ t.users }}"></div>
+      {% endfor %}
+    </div>
+    <div class="activity-label">Оплаты (₽)</div>
+    <div class="trend-chart">
+      {% for t in trends %}
+      <div class="bar" style="height: {{ [4, (100 * t.pay_sum / max_trend_pay)|round(0) if max_trend_pay else 0]|max }}%" title="{{ t.day }}: {{ t.pay_sum }} ₽"></div>
+      {% endfor %}
+    </div>
+    <div class="activity-label">Генерации</div>
+    <div class="trend-chart">
+      {% for t in trends %}
+      <div class="bar" style="height: {{ [4, (100 * t.gen / max_trend_gen)|round(0) if max_trend_gen else 0]|max }}%" title="{{ t.day }}: {{ t.gen }}"></div>
+      {% endfor %}
+    </div>
+    <div class="trend-caption">{% if trends %}{{ trends[0].day }} … {{ trends[-1].day }}{% endif %}</div>
+  </div>
+</div>
+
+<div class="dashboard-block">
+  <h3>🕐 Активность по часам (МСК)</h3>
+  <div class="activity-label">24 часа</div>
+  <div class="activity-chart">
+    {% for r in activity_day %}
+    <div class="bar" style="height: {{ [2, (100 * r.cnt / max_day)|round(1) if max_day else 0]|max }}%" title="{{ r.hour }}:00 — {{ r.cnt }}"></div>
+    {% endfor %}
+  </div>
+  <div class="activity-label">7 дней</div>
+  <div class="activity-chart">
+    {% for r in activity_week %}
+    <div class="bar" style="height: {{ [2, (100 * r.cnt / max_week)|round(1) if max_week else 0]|max }}%" title="{{ r.hour }}:00 — {{ r.cnt }}"></div>
+    {% endfor %}
+  </div>
+  <div class="activity-label">30 дней</div>
+  <div class="activity-chart">
+    {% for r in activity_month %}
+    <div class="bar" style="height: {{ [2, (100 * r.cnt / max_month)|round(1) if max_month else 0]|max }}%" title="{{ r.hour }}:00 — {{ r.cnt }}"></div>
+    {% endfor %}
+  </div>
+  <div class="trend-caption">0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ч</div>
+</div>
+{% endblock %}

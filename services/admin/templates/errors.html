@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Лог ошибок{% endblock %}
+{% block head %}
+<style>
+  .err-mobile { display: none; }
+  @media (max-width: 640px) {
+    .err-desktop { display: none; }
+    .err-mobile { display: block; }
+    .err-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: .85rem; margin-bottom: .6rem; box-shadow: var(--shadow);
+    }
+    .err-card .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
+    .err-card .date { font-size: .78rem; color: var(--muted); }
+    .err-card .type { font-size: .82rem; font-weight: 600; }
+    .err-card .msg {
+      font-size: .82rem; color: var(--muted); margin-top: .35rem;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+      -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>🐛 Лог ошибок</h1>
+
+<div class="card">
+  <form method="get" action="{{ url_for('errors') }}" class="form-row">
+    <input type="text" name="user_id" value="{{ user_filter }}" placeholder="ID / username / имя" style="min-width:160px; flex:1;">
+    <select name="sort">
+      <option value="date" {{ 'selected' if sort_by == 'date' }}>По дате</option>
+      <option value="user" {{ 'selected' if sort_by == 'user' }}>По юзеру</option>
+    </select>
+    <button type="submit" class="btn btn-primary">Применить</button>
+    {% if user_filter %}<a href="{{ url_for('errors', sort=sort_by) }}" class="btn btn-secondary">Сбросить</a>{% endif %}
+    <a href="{{ url_for('errors_export') }}" class="btn btn-secondary" style="margin-left:auto;">📥 CSV</a>
+  </form>
+</div>
+
+<div class="card err-desktop">
+  <p style="color:var(--muted); font-size:.85rem; margin-bottom:.75rem;">Найдено: <strong>{{ total }}</strong></p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Дата</th><th>Юзер</th><th>Источник</th><th>Тип</th><th>Модель</th><th>Ошибка</th></tr>
+    </thead>
+    <tbody>
+      {% for e in errors %}
+      <tr>
+        <td style="white-space:nowrap;">{{ e.started_at.strftime('%d.%m %H:%M') if e.started_at else '-' }}</td>
+        <td>
+          <a href="{{ url_for('user_detail', user_id=e.user_id) }}">{{ e.user_id }}</a>
+          {% if e.username or e.first_name %}<br><small style="color:var(--muted);">{{ e.username or '' }} {{ e.first_name or '' }}</small>{% endif %}
+        </td>
+        <td>{{ e.source or '—' }}</td>
+        <td>{{ e.task_type or '-' }}</td>
+        <td>{{ (e.model or '-')[:18] }}</td>
+        <td style="max-width:350px; overflow:hidden; text-overflow:ellipsis;" title="{{ e.error_message or '' }}">
+          {{ (e.error_message or '-')[:120] }}{% if e.error_message and e.error_message|length > 120 %}…{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not errors %}<tr><td colspan="6" style="color:var(--muted);">Нет ошибок</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="err-mobile">
+  <p style="color:var(--muted); font-size:.82rem; margin-bottom:.5rem;">{{ total }} ошибок</p>
+  {% for e in errors %}
+  <div class="err-card">
+    <div class="top">
+      <span class="type">{{ e.source or '-' }} · {{ e.task_type or '-' }} · {{ (e.model or '-')[:16] }}</span>
+      <span class="date">{{ e.started_at.strftime('%d.%m %H:%M') if e.started_at else '-' }}</span>
+    </div>
+    <div style="font-size:.82rem;"><a href="{{ url_for('user_detail', user_id=e.user_id) }}">{{ e.user_id }}</a> {{ e.username or e.first_name or '' }}</div>
+    <div class="msg">{{ e.error_message or '-' }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if total > per_page %}
+<div class="pagination">
+  {% if page > 1 %}<a href="{{ url_for('errors', page=page-1, user_id=user_filter, sort=sort_by) }}" class="btn btn-secondary">← Назад</a>{% endif %}
+  <span class="info">{{ page }} / {{ (((total - 1) / per_page)|int + 1) if total else 1 }}</span>
+  {% if page * per_page < total %}<a href="{{ url_for('errors', page=page+1, user_id=user_filter, sort=sort_by) }}" class="btn btn-secondary">Вперёд →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

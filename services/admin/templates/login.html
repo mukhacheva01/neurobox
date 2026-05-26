@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block head %}
+<style>
+  .login-wrap {
+    display: flex; align-items: center; justify-content: center;
+    min-height: calc(100dvh - 80px); padding: 1rem;
+  }
+  .login-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 2rem 1.75rem; box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 380px;
+  }
+  .login-card h2 { text-align: center; margin-bottom: 1.5rem; }
+  .login-card .logo { text-align: center; font-size: 2.5rem; margin-bottom: .75rem; }
+  .login-card label { display: block; margin-bottom: 1rem; font-size: .88rem; color: var(--muted); }
+  .login-card label span { display: block; margin-bottom: .35rem; font-weight: 500; }
+  .login-card input { width: 100%; }
+  .login-card .btn { width: 100%; margin-top: .5rem; padding: .6rem; font-size: .95rem; }
+  .login-card .err { color: var(--danger); text-align: center; margin-bottom: 1rem; font-size: .88rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="logo">🤖</div>
+    <h2>НейроБокс — Админка</h2>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <form method="post" action="{{ url_for('login') }}">
+      <label>
+        <span>Логин</span>
+        <input type="text" name="username" required autofocus autocomplete="username" value="{{ login_prefill or '' }}">
+      </label>
+      <label>
+        <span>Пароль</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <label>
+        <span>Код 2FA {% if not otp_required %}<small style="color:var(--muted);">(если включён)</small>{% endif %}</span>
+        <input type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+      </label>
+      <button type="submit" class="btn btn-primary">Войти</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

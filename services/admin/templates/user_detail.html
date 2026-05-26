@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Пользователь {{ user.id }}{% endblock %}
+{% block head %}
+<style>
+  .user-header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: .5rem; }
+  .user-header h2 { margin: 0; }
+  .user-header .badge {
+    display: inline-block; padding: .2rem .6rem; border-radius: 20px; font-size: .78rem; font-weight: 600;
+  }
+  .badge-active { background: rgba(34,197,94,.15); color: var(--success); }
+  .badge-blocked { background: rgba(239,68,68,.15); color: var(--danger); }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .5rem; margin: .75rem 0; }
+  .info-item { font-size: .88rem; }
+  .info-item .label { color: var(--muted); font-size: .78rem; }
+  .actions-grid { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  .actions-grid form { display: flex; gap: .35rem; align-items: center; }
+  @media (max-width: 640px) {
+    .info-grid { grid-template-columns: repeat(2, 1fr); }
+    .actions-grid { flex-direction: column; align-items: stretch; }
+    .actions-grid form { flex-wrap: wrap; }
+    .actions-grid form input[type="number"],
+    .actions-grid form input[type="text"] { flex: 1; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('users_list') }}">← К списку</a></p>
+
+<div class="card">
+  <div class="user-header">
+    <h2>👤 {{ user.first_name or '—' }} {% if user.username %}@{{ user.username }}{% endif %}</h2>
+    {% if user.is_blocked %}
+    <span class="badge badge-blocked">🚫 Заблокирован</span>
+    {% else %}
+    <span class="badge badge-active">✅ Активен</span>
+    {% endif %}
+  </div>
+  <div class="info-grid">
+    <div class="info-item"><div class="label">ID</div><strong>{{ user.id }}</strong></div>
+    <div class="info-item"><div class="label">Регистрация</div>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '—' }}</div>
+    <div class="info-item"><div class="label">Последняя активность</div>{{ user.last_active_at.strftime('%d.%m.%Y %H:%M') if user.last_active_at else '—' }}</div>
+    <div class="info-item"><div class="label">Баланс</div><strong style="color:var(--accent);">{{ (user.credits_bought or 0) + (user.credits_free_today or 0) }} CR</strong></div>
+    <div class="info-item"><div class="label">Куплено / Бесплатно</div>{{ user.credits_bought or 0 }} / {{ user.credits_free_today or 0 }}</div>
+    <div class="info-item"><div class="label">LTV</div>{{ "%.0f"|format(user.total_payments_rub or 0) }} ₽</div>
+    <div class="info-item"><div class="label">Источник</div>{{ user.utm_source or user.acquisition_channel or 'organic' }}</div>
+    <div class="info-item"><div class="label">Start payload</div>{{ user.start_payload or '—' }}</div>
+    <div class="info-item"><div class="label">First paid</div>{{ user.first_paid_at.strftime('%d.%m.%Y %H:%M') if user.first_paid_at else '—' }}</div>
+    <div class="info-item"><div class="label">Last paid</div>{{ user.last_paid_at.strftime('%d.%m.%Y %H:%M') if user.last_paid_at else '—' }}</div>
+    {% if user.unlimited_ends_at %}
+    <div class="info-item"><div class="label">Безлимит до</div>{{ user.unlimited_ends_at.strftime('%d.%m.%Y %H:%M') }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>Действия</h3>
+  <div class="actions-grid">
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}">
+      <input type="hidden" name="action" value="{% if user.is_blocked %}unban{% else %}ban{% endif %}">
+      <button type="submit" class="btn {% if user.is_blocked %}btn-primary{% else %}btn-danger{% endif %}">
+        {% if user.is_blocked %}Разблокировать{% else %}Заблокировать{% endif %}
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}">
+      <input type="hidden" name="action" value="add_credits">
+      <input type="number" name="amount" placeholder="CR" min="1" style="width:80px;">
+      <button type="submit" class="btn btn-primary">+ Начислить</button>
+    </form>
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}">
+      <input type="hidden" name="action" value="sub_credits">
+      <input type="number" name="amount" placeholder="CR" min="1" style="width:80px;">
+      <button type="submit" class="btn btn-secondary">− Списать</button>
+    </form>
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}">
+      <input type="hidden" name="action" value="set_unlimited">
+      <input type="number" name="days" placeholder="дней" min="1" style="width:80px;">
+      <button type="submit" class="btn btn-primary">♾ Безлимит</button>
+    </form>
+    {% if user.unlimited_ends_at %}
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}">
+      <input type="hidden" name="action" value="remove_unlimited">
+      <button type="submit" class="btn btn-secondary">Убрать безлимит</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('user_action', user_id=user.id) }}" style="flex:1; min-width:250px;">
+      <input type="hidden" name="action" value="note">
+      <input type="text" name="note" placeholder="Заметка о пользователе" style="flex:1; width:100%;">
+      <button type="submit" class="btn btn-secondary">📝</button>
+    </form>
+  </div>
+</div>
+
+{% if notes %}
+<div class="card">
+  <h3>📝 Заметки</h3>
+  {% for n in notes %}
+  <div style="padding:.4rem 0; border-bottom:1px solid var(--border); font-size:.88rem;">
+    {{ n.note }} <span style="color:var(--muted); font-size:.75rem;">{{ n.created_at.strftime('%d.%m %H:%M') if n.created_at else '' }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>💳 Платежи (последние 20)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>Сумма</th><th>CR</th><th>Статус</th><th>Дата</th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ "%.0f"|format(p.amount_rub or 0) }} ₽</td>
+        <td>{{ p.credits_amount }}</td>
+        <td><span style="color:{{ 'var(--success)' if p.status == 'confirmed' else 'var(--warn)' }}">{{ p.status }}</span>{% if p.provider %}<br><small style="color:var(--muted);">{{ p.provider }}</small>{% endif %}</td>
+        <td style="white-space:nowrap;">{{ p.confirmed_at.strftime('%d.%m %H:%M') if p.confirmed_at else (p.created_at.strftime('%d.%m %H:%M') if p.created_at else '—') }}</td>
+      </tr>
+      {% endfor %}
+      {% if not payments %}<tr><td colspan="5" style="color:var(--muted);">Нет платежей</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📋 Операции с кредитами (последние 20)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Дата</th><th>Сумма</th><th>Тип</th><th>Описание</th></tr></thead>
+    <tbody>
+      {% for t in transactions %}
+      <tr>
+        <td style="white-space:nowrap;">{{ t.created_at.strftime('%d.%m %H:%M') if t.created_at else '—' }}</td>
+        <td style="color:{{ 'var(--success)' if t.amount > 0 else 'var(--danger)' }}; font-weight:600;">{{ '+' if t.amount > 0 else '' }}{{ t.amount }}</td>
+        <td>{{ t.type }}</td>
+        <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis;">{{ t.description or '—' }}</td>
+      </tr>
+      {% endfor %}
+      {% if not transactions %}<tr><td colspan="4" style="color:var(--muted);">Нет операций</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>🗨️ Последние сообщения</h3>
+  {% for m in messages %}
+  <div style="padding:.45rem 0; border-bottom:1px solid var(--border);">
+    <div style="font-size:.78rem; color:var(--muted);">{{ m.created_at.strftime('%d.%m %H:%M') if m.created_at else '—' }} · {{ m.role }}</div>
+    <div style="white-space:pre-wrap;">{{ m.content }}</div>
+  </div>
+  {% endfor %}
+  {% if not messages %}<div style="color:var(--muted);">История сообщений пуста.</div>{% endif %}
+</div>
+
+<div class="card">
+  <h3>💬 Обращения / feedback</h3>
+  {% for f in feedback_rows %}
+  <div style="padding:.45rem 0; border-bottom:1px solid var(--border);">
+    <div style="font-size:.78rem; color:var(--muted);">{{ f.created_at.strftime('%d.%m %H:%M') if f.created_at else '—' }} · {{ f.status }}</div>
+    <div style="white-space:pre-wrap;">{{ f.text }}</div>
+    {% if f.admin_note %}<div style="margin-top:.35rem; color:var(--muted);">Заметка: {{ f.admin_note }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% if not feedback_rows %}<div style="color:var(--muted);">Нет обращений.</div>{% endif %}
+</div>
+{% endblock %}

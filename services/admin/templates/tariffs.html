@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Тарифы{% endblock %}
+{% block content %}
+<h1>💸 Тарифы и планы</h1>
+{% for r in rows %}
+<div class="card">
+  <form method="post">
+    <input type="hidden" name="plan_key" value="{{ r.plan_key }}">
+    <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.75rem;">
+      <strong>{{ r.plan_key }}</strong>
+      <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" name="enabled" {{ 'checked' if r.enabled }}> enabled</label>
+    </div>
+    <div class="form-row" style="margin-bottom:.5rem;">
+      <input type="text" name="label" value="{{ r.label }}" placeholder="Название" style="flex:2;">
+      <input type="number" name="credits" value="{{ r.credits }}" placeholder="CR" style="width:110px;">
+      <input type="number" step="0.01" name="price_rub" value="{{ r.price_rub }}" placeholder="₽" style="width:110px;">
+      <input type="number" name="price_stars" value="{{ r.price_stars }}" placeholder="Stars" style="width:110px;">
+      <input type="number" step="0.01" name="price_usd" value="{{ r.price_usd }}" placeholder="$" style="width:110px;">
+    </div>
+    <div class="form-row">
+      <input type="text" name="discount" value="{{ r.discount }}" placeholder="Скидка" style="width:120px;">
+      <input type="number" name="sort_order" value="{{ r.sort_order }}" placeholder="sort" style="width:100px;">
+      <input type="number" name="period_days" value="{{ r.period_days or '' }}" placeholder="дней" style="width:100px;">
+      <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" name="is_one_time" {{ 'checked' if r.is_one_time }}> one-time</label>
+      {% if r.is_unlimited %}<span style="color:var(--muted); font-size:.85rem;">unlimited plan</span>{% endif %}
+    </div>
+    <div style="margin-top:.75rem;">
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+      <span style="color:var(--muted); font-size:.8rem; margin-left:.5rem;">Обновлено: {{ r.updated_at.strftime('%d.%m %H:%M') if r.updated_at else '—' }}</span>
+    </div>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}

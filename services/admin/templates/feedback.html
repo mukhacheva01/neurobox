@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Поддержка{% endblock %}
+{% block content %}
+<h1>💬 Обращения пользователей</h1>
+<form method="get" class="card form-row">
+  <select name="status">
+    <option value="">Все статусы</option>
+    {% for opt in ['new','in_progress','resolved','closed'] %}
+    <option value="{{ opt }}" {{ 'selected' if status_filter == opt }}>{{ opt }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary">Фильтр</button>
+</form>
+
+{% for r in rows %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem;">
+    <div>
+      <strong><a href="{{ url_for('user_detail', user_id=r.user_id) }}">{{ r.user_id }}</a></strong>
+      {% if r.username %}@{{ r.username }}{% elif r.first_name %}{{ r.first_name }}{% endif %}
+    </div>
+    <div style="color:var(--muted); font-size:.85rem;">
+      {{ r.created_at.strftime('%d.%m %H:%M') if r.created_at else '—' }} · {{ r.status }}
+    </div>
+  </div>
+  <div style="white-space:pre-wrap; margin-bottom:.75rem;">{{ r.text }}</div>
+  <form method="post" action="{{ url_for('feedback_action', feedback_id=r.id) }}" class="form-row">
+    <input type="hidden" name="action" value="update">
+    <select name="status">
+      {% for opt in ['new','in_progress','resolved','closed'] %}
+      <option value="{{ opt }}" {{ 'selected' if r.status == opt }}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="admin_note" value="{{ r.admin_note or '' }}" placeholder="Заметка для саппорта" style="flex:1; min-width:240px;">
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+  </form>
+</div>
+{% endfor %}
+{% if not rows %}
+<div class="card" style="color:var(--muted);">Нет обращений.</div>
+{% endif %}
+{% endblock %}

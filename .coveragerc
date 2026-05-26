@@ -1,0 +1,23 @@
+[run]
+omit =
+    services/bot/handlers/image.py
+    services/bot/handlers/video.py
+    services/bot/handlers/audiogen.py
+    services/bot/handlers/transcribe.py
+    services/bot/handlers/docgen.py
+    services/bot/handlers/photo_tools.py
+    services/bot/handlers/music.py
+    services/bot/handlers/board.py
+    services/bot/handlers/voice.py
+    services/worker/jobs/video_generate.py
+    shared/providers/falai_image.py
+    shared/providers/falai_photo.py
+    shared/providers/falai_video.py
+    shared/providers/falai_song.py
+    shared/providers/google_image.py
+    shared/providers/google_veo.py
+    shared/providers/midjourney_image.py
+    shared/providers/xai_image.py
+    shared/providers/edge_tts_provider.py
+    shared/providers/musicgen.py
+    shared/domain/video.py

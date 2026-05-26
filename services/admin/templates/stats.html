@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Статистика{% endblock %}
+{% block head %}
+<style>
+  .stats-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+  .stats-summary .card { text-align: center; padding: 1rem; }
+  .stats-summary .val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+  .stats-summary .lab { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+  @media (max-width: 640px) {
+    .stats-summary { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>📈 Статистика</h1>
+
+<div class="stats-summary">
+  <div class="card"><div class="val">{{ active_today }}</div><div class="lab">Активных сегодня</div></div>
+  <div class="card"><div class="val">{{ gen_today }}</div><div class="lab">Генераций сегодня</div></div>
+</div>
+
+<div class="card">
+  <h3>👥 Регистрации по дням (30 дней)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>День</th><th>Новых</th></tr></thead>
+    <tbody>
+      {% for r in users_by_day %}
+      <tr><td>{{ r.day[:10] }}</td><td>{{ r.cnt }}</td></tr>
+      {% endfor %}
+      {% if not users_by_day %}<tr><td colspan="2" style="color:var(--muted);">Нет данных</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>💳 Оплаты по дням (30 дней)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>День</th><th>Кол-во</th><th>Сумма, ₽</th></tr></thead>
+    <tbody>
+      {% for r in payments_by_day %}
+      <tr><td>{{ r.day[:10] }}</td><td>{{ r.cnt }}</td><td>{{ "%.0f"|format(r.sum_rub) }}</td></tr>
+      {% endfor %}
+      {% if not payments_by_day %}<tr><td colspan="3" style="color:var(--muted);">Нет данных</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>⚡ Генерации по типу</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Тип</th><th>Кол-во</th></tr></thead>
+    <tbody>
+      {% for r in requests_by_type %}
+      <tr><td>{{ r.task_type }}</td><td>{{ r.cnt }}</td></tr>
+      {% endfor %}
+      {% if not requests_by_type %}<tr><td colspan="2" style="color:var(--muted);">Нет данных</td></tr>{% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

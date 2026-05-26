@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Пользователи{% endblock %}
+{% block head %}
+<style>
+  .search-bar {
+    display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
+    margin-bottom: 1rem;
+  }
+  .search-bar input { flex: 1; min-width: 180px; }
+  .user-mobile { display: none; }
+  @media (max-width: 640px) {
+    .user-desktop { display: none; }
+    .user-mobile { display: block; }
+    .user-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: .85rem; margin-bottom: .6rem; box-shadow: var(--shadow);
+    }
+    .user-card .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+    .user-card .name { font-weight: 600; font-size: .95rem; }
+    .user-card .meta { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; }
+    .user-card .actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>👥 Пользователи</h1>
+<form method="get" class="search-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="ID, username или имя…">
+  <select name="status">
+    <option value="">Все сегменты</option>
+    {% for opt in ['free','trial','paid','churned','reactivated','blocked'] %}
+    <option value="{{ opt }}" {{ 'selected' if status_filter == opt }}>{{ opt }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary">Искать</button>
+  <a href="{{ url_for('users_export') }}" class="btn btn-secondary">📥 CSV</a>
+</form>
+
+<div class="card user-desktop">
+  <p style="color:var(--muted); font-size:.85rem; margin-bottom:.75rem;">Найдено: {{ total }}. Страница {{ page }}.</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Username</th><th>Имя</th><th>Сегмент</th><th>Баланс</th><th>LTV</th><th>Источник</th><th>Дата</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>{% if u.username %}@{{ u.username }}{% else %}—{% endif %}</td>
+        <td>{{ u.first_name or '—' }}</td>
+        <td>{{ u.segment }}</td>
+        <td>{{ (u.credits_bought or 0) + (u.credits_free_today or 0) }} CR</td>
+        <td>{{ "%.0f"|format(u.total_payments_rub or 0) }} ₽</td>
+        <td>{{ u.utm_source or u.acquisition_channel or 'organic' }}</td>
+        <td style="white-space:nowrap;">{{ u.created_at.strftime('%d.%m.%Y') if u.created_at else '—' }}</td>
+        <td style="white-space:nowrap;">
+          {% if u.is_blocked %}
+          <form method="post" action="{{ url_for('user_action', user_id=u.id) }}" style="display:inline;">
+            <input type="hidden" name="action" value="unban">
+            <button type="submit" class="btn btn-secondary btn-sm">Разбан</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('user_action', user_id=u.id) }}" style="display:inline;">
+            <input type="hidden" name="action" value="ban">
+            <button type="submit" class="btn btn-danger btn-sm">Бан</button>
+          </form>
+          {% endif %}
+          <a href="{{ url_for('user_detail', user_id=u.id) }}" class="btn btn-secondary btn-sm">Открыть</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="user-mobile">
+  <p style="color:var(--muted); font-size:.82rem; margin-bottom:.5rem;">{{ total }} пользователей · стр. {{ page }}</p>
+  {% for u in users %}
+  <div class="user-card">
+    <div class="top">
+      <div>
+        <div class="name">{% if u.is_blocked %}🚫 {% endif %}{{ u.first_name or '—' }}</div>
+        <div class="meta">{{ u.id }} · {% if u.username %}@{{ u.username }}{% else %}no username{% endif %} · {{ u.segment }}</div>
+      </div>
+      <div style="font-weight:700; color:var(--accent);">{{ (u.credits_bought or 0) + (u.credits_free_today or 0) }} CR</div>
+    </div>
+    <div class="meta">Регистрация: {{ u.created_at.strftime('%d.%m.%Y') if u.created_at else '—' }} · {{ "%.0f"|format(u.total_payments_rub or 0) }} ₽ · {{ u.utm_source or u.acquisition_channel or 'organic' }}</div>
+    <div class="actions">
+      <a href="{{ url_for('user_detail', user_id=u.id) }}" class="btn btn-primary btn-sm">Открыть</a>
+      {% if u.is_blocked %}
+      <form method="post" action="{{ url_for('user_action', user_id=u.id) }}" style="display:inline;">
+        <input type="hidden" name="action" value="unban"><button type="submit" class="btn btn-secondary btn-sm">Разбан</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('user_action', user_id=u.id) }}" style="display:inline;">
+        <input type="hidden" name="action" value="ban"><button type="submit" class="btn btn-danger btn-sm">Бан</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if total > per_page %}
+<div class="pagination">
+  {% if page > 1 %}<a href="{{ url_for('users_list', page=page-1, q=q, status=status_filter) }}" class="btn btn-secondary">← Назад</a>{% endif %}
+  <span class="info">{{ page }} / {{ (((total - 1) / per_page)|int + 1) if total else 1 }}</span>
+  {% if page * per_page < total %}<a href="{{ url_for('users_list', page=page+1, q=q, status=status_filter) }}" class="btn btn-secondary">Вперёд →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

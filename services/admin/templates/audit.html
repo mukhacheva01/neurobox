@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Аудит действий{% endblock %}
+{% block content %}
+<h1>🧾 Аудит действий админов</h1>
+<form method="get" class="card form-row">
+  <input type="text" name="action" value="{{ action_filter }}" placeholder="action">
+  <input type="text" name="entity_type" value="{{ entity_filter }}" placeholder="entity_type">
+  <button type="submit" class="btn btn-primary">Фильтр</button>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Дата</th><th>Админ</th><th>Role</th><th>Action</th><th>Entity</th><th>ID</th><th>IP</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="white-space:nowrap;">{{ r.created_at.strftime('%d.%m %H:%M') if r.created_at else '—' }}</td>
+          <td>{{ r.admin_login or '—' }}</td>
+          <td>{{ r.admin_role or '—' }}</td>
+          <td>{{ r.action }}</td>
+          <td>{{ r.entity_type or '—' }}</td>
+          <td>{{ r.entity_id or '—' }}</td>
+          <td>{{ r.ip or '—' }}</td>
+          <td style="max-width:420px; overflow:hidden; text-overflow:ellipsis;">{{ r.details or '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not rows %}<tr><td colspan="8" style="color:var(--muted);">Нет записей</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

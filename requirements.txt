@@ -1,0 +1,26 @@
+# Pinned versions (audit: no ranges in production)
+aiogram==3.25.0
+asyncpg==0.31.0
+sqlalchemy[asyncio]==2.0.41
+alembic==1.16.1
+pydantic-settings==2.12.0
+structlog==25.1.0
+openai==2.20.0
+httpx==0.28.0
+tenacity==9.0.0
+edge-tts==7.2.0
+redis==5.3.0
+aiohttp==3.13.0
+anthropic==0.79.0
+PyMuPDF==1.27.1
+python-docx==1.2.0
+flask==3.0.0
+fastapi==0.115.0
+uvicorn==0.32.0
+psycopg2-binary==2.9.10
+pytest>=8.2,<9
+pytest-asyncio==0.24.0
+reportlab==4.2.5
+openpyxl==3.1.5
+pydub==0.25.1
+pyotp==2.9.0

@@ -1,0 +1,12 @@
+# НейроБокс — Ruff (линтер/форматтер)
+# Запуск: ruff check .  |  ruff format --check .
+
+[lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["bot", "config", "admin_panel", "api", "worker", "scripts"]
+
+[format]
+quote-style = "double"

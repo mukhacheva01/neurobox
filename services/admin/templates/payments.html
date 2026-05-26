@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Оплаты{% endblock %}
+{% block head %}
+<style>
+  .pay-mobile { display: none; }
+  @media (max-width: 640px) {
+    .pay-desktop { display: none; }
+    .pay-mobile { display: block; }
+    .pay-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: .85rem; margin-bottom: .6rem; box-shadow: var(--shadow);
+    }
+    .pay-card .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .35rem; }
+    .pay-card .amount { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
+    .pay-card .meta { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>💳 Оплаты</h1>
+<form method="get" class="card form-row" style="margin-bottom:1rem;">
+  <label style="font-size:.85rem; color:var(--muted);">Статус:</label>
+  <select name="status">
+    <option value="">Все</option>
+    <option value="pending" {{ 'selected' if status_filter == 'pending' }}>Ожидают</option>
+    <option value="confirmed" {{ 'selected' if status_filter == 'confirmed' }}>Подтверждены</option>
+    <option value="failed" {{ 'selected' if status_filter == 'failed' }}>Ошибка</option>
+    <option value="refunded" {{ 'selected' if status_filter == 'refunded' }}>Refunded</option>
+  </select>
+  <select name="provider">
+    <option value="">Все провайдеры</option>
+    {% for p in providers %}
+    <option value="{{ p.provider }}" {{ 'selected' if provider_filter == p.provider }}>{{ p.provider }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary">Фильтр</button>
+  <a href="{{ url_for('payments_export') }}?status={{ status_filter }}&provider={{ provider_filter }}" class="btn btn-secondary">📥 CSV</a>
+</form>
+
+<div class="card">
+  <div class="grid">
+    <div class="stat"><div class="n">{{ "%.0f"|format(revenue_confirmed) }} ₽</div><div class="l">Выручка confirmed</div></div>
+    <div class="stat"><div class="n">{{ confirmed_cnt }}</div><div class="l">Confirmed платежей</div></div>
+    <div class="stat"><div class="n">{{ "%.0f"|format(avg_check) }} ₽</div><div class="l">Средний чек</div></div>
+    <div class="stat"><div class="n">{{ refunds_cnt }}</div><div class="l">Refunds</div></div>
+  </div>
+</div>
+
+<div class="card pay-desktop">
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>User</th><th>Имя</th><th>Сумма</th><th>CR</th><th>Пакет</th><th>Статус</th><th>Провайдер</th><th>Промо</th><th>Создан</th><th>Подтв.</th></tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td><a href="{{ url_for('user_detail', user_id=p.user_id) }}">{{ p.user_id }}</a></td>
+        <td>{{ p.username or '' }} {{ p.first_name or '' }}</td>
+        <td>{{ "%.0f"|format(p.amount_rub) }} ₽</td>
+        <td>{{ p.credits_amount }}</td>
+        <td>{{ p.pack_name or '-' }}</td>
+        <td><span style="color: {{ 'var(--success)' if p.status == 'confirmed' else ('var(--danger)' if p.status == 'failed' else 'var(--warn)') }}">{{ p.status }}</span></td>
+        <td>{{ p.provider or '—' }}</td>
+        <td>{{ p.promo_code or '—' }}</td>
+        <td style="white-space:nowrap;">{{ p.created_at.strftime('%d.%m %H:%M') if p.created_at else '-' }}</td>
+        <td style="white-space:nowrap;">{{ p.confirmed_at.strftime('%d.%m %H:%M') if p.confirmed_at else '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="pay-mobile">
+  {% for p in payments %}
+  <div class="pay-card">
+    <div class="top">
+      <div class="amount">{{ "%.0f"|format(p.amount_rub) }} ₽</div>
+      <span style="color: {{ 'var(--success)' if p.status == 'confirmed' else ('var(--danger)' if p.status == 'failed' else 'var(--warn)') }}; font-size:.82rem; font-weight:600;">{{ p.status }}</span>
+    </div>
+    <div class="meta">
+      <a href="{{ url_for('user_detail', user_id=p.user_id) }}">{{ p.user_id }}</a> · {{ p.username or p.first_name or '' }}<br>
+      {{ p.credits_amount }} CR · {{ p.pack_name or '-' }}<br>
+      {{ p.provider or '—' }}{% if p.promo_code %} · promo {{ p.promo_code }}{% endif %}<br>
+      {{ p.created_at.strftime('%d.%m %H:%M') if p.created_at else '-' }}
+      {% if p.confirmed_at %} → {{ p.confirmed_at.strftime('%d.%m %H:%M') }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="pagination">
+  <span class="info">Всего: {{ total }} · стр. {{ page }}</span>
+  {% if total > per_page %}
+    {% if page > 1 %}<a href="?page={{ page - 1 }}&status={{ status_filter }}&provider={{ provider_filter }}" class="btn btn-secondary">← Назад</a>{% endif %}
+    {% if page * per_page < total %}<a href="?page={{ page + 1 }}&status={{ status_filter }}&provider={{ provider_filter }}" class="btn btn-secondary">Вперёд →</a>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}
