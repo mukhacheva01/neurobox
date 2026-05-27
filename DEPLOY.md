@@ -5,29 +5,67 @@
 ```bash
 cd /opt/neurobox
 cp .env.example .env
-# заполни env
+# заполнить env
 
 docker compose up -d --build
 docker compose ps
 ```
 
-Если код уже смонтирован на сервере и менялись только `.py` файлы:
+Если на сервер уже залит код и менялись только Python-файлы:
 
 ```bash
 cd /opt/neurobox
-docker compose restart bot worker webhook admin api
+docker compose up -d --build --remove-orphans
+docker compose ps
 ```
 
-## Что обязательно проверить после деплоя
+## GitHub Actions CD
+
+Фаза 5 использует `.github/workflows/cd.yml`.
+
+Нужные secrets в GitHub:
+
+- `SSH_HOST`
+- `SSH_PORT`
+- `SSH_USER`
+- `SSH_PRIVATE_KEY`
+- `DEPLOY_PATH`
+
+Что должно быть подготовлено на сервере до первого запуска CD:
+
+- существует директория из `DEPLOY_PATH`
+- у `SSH_USER` есть права на запись в `DEPLOY_PATH`
+- на сервере установлен Docker с Compose plugin
+- в `DEPLOY_PATH/.env` лежит актуальный production `.env`
+
+## Dry Run Перед Включением CD
+
+Перед первым merge в `main` нужно руками проверить тот же сценарий, который потом будет выполнять workflow:
+
+```bash
+cd /opt/neurobox
+docker compose up -d --build --remove-orphans
+docker compose ps
+curl -fsS http://127.0.0.1:8092/health
+curl -fsS http://127.0.0.1:8091/health
+docker compose exec -T bot python /app/scripts/healthcheck_bot.py
+```
+
+Если это не проходит вручную, CD включать нельзя.
+
+## Что Проверять После Деплоя
 
 ```bash
 docker compose ps
+curl -fsS http://127.0.0.1:8092/health
+curl -fsS http://127.0.0.1:8091/health
+docker compose exec -T bot python /app/scripts/healthcheck_bot.py
+docker compose logs backend --tail 50
 docker compose logs bot --tail 50
-docker compose exec -T bot pytest -q
-docker compose exec -T bot python /app/scripts/smoke_user_flow.py
+docker compose logs worker --tail 50
 ```
 
-## Production env минимум
+## Production Env Минимум
 
 - `BOT_TOKEN`
 - `BOT_USERNAME`
@@ -39,7 +77,7 @@ docker compose exec -T bot python /app/scripts/smoke_user_flow.py
 - `ADMIN_API_SECRET_KEY`
 - `LEGAL_BASE_URL`
 
-## Рекомендуемый stable-режим
+## Рекомендуемый Stable Режим
 
 ```env
 ENABLE_STARS_PAYMENT=true
@@ -50,20 +88,31 @@ ENABLE_MUSIC=false
 ENABLE_TTS=false
 ```
 
-В таком режиме бот продаёт и публикует только рабочее ядро.
+## Rollback
 
-## Когда включать дополнительные модули
+Минимальная rollback-процедура:
 
-- `ENABLE_VIDEO=true` только после live-проверки `FALAI_API_KEY`
-- `ENABLE_MUSIC=true` только после live-проверки `FALAI_API_KEY`
-- `ENABLE_TTS=true` только после live-проверки TTS-провайдера
-- `ENABLE_YOOKASSA_PAYMENT=true` и `ENABLE_CRYPTOBOT_PAYMENT=true` только если это не конфликтует с текущей платформенной политикой и сценарий вынесен из forbidden in-app digital sales flow
+1. На сервере перейти в `DEPLOY_PATH`.
+2. Посмотреть последние коммиты: `git log --oneline -5`.
+3. Переключить код на предыдущий стабильный коммит: `git checkout <stable-sha>`.
+4. Пересобрать стек: `docker compose up -d --build --remove-orphans`.
+5. Проверить smoke:
 
-## Release gate
+```bash
+docker compose ps
+curl -fsS http://127.0.0.1:8092/health
+curl -fsS http://127.0.0.1:8091/health
+docker compose exec -T bot python /app/scripts/healthcheck_bot.py
+```
 
-Деплой считается готовым к продажам только если:
+Если rollback выполняется часто, нужно закрепить на сервере отдельный bare-repo или release tags, но для текущей фазы достаточно явной ручной процедуры.
+
+## Release Gate
+
+Деплой считается готовым только если:
+
 1. все контейнеры healthy
-2. смоук зелёный
-3. published commands совпадают с включёнными фичами
+2. post-deploy smoke зелёный
+3. опубликованные команды совпадают с включёнными фичами
 4. legal pages доступны
-5. есть хотя бы один подтверждённый live payment сценарий для активного платёжного метода
+5. есть хотя бы один подтверждённый live payment сценарий для активного способа оплаты

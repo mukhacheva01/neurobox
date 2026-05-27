@@ -79,7 +79,6 @@ docker compose exec bot python /app/scripts/smoke_user_flow.py --with-contract-t
 ```bash
 cd /opt/neurobox
 docker compose up -d --build
-docker compose restart bot worker webhook admin api
 ```
 
-Если менялся только Python-код, обычно достаточно `docker compose restart ...` без rebuild.
+Подробный production flow, smoke и rollback описаны в `DEPLOY.md`.
