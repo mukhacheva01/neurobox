@@ -1,15 +1,13 @@
-"""DB connection for admin panel (sync psycopg2)."""
-import os
-
+"""Sync psycopg2 connection helper for the admin panel."""
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+from shared.config.runtime_urls import database_url_from_env
+
 
 def _get_database_url():
-    url = os.environ.get("DATABASE_URL", "postgresql://neurobox:password@postgres:5432/neurobox")
-    if url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
-    return url
+    return database_url_from_env(async_driver=False)
+
 
 def get_conn():
     return psycopg2.connect(_get_database_url(), cursor_factory=RealDictCursor)

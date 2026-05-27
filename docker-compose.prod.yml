@@ -17,24 +17,6 @@ x-runtime-env: &runtime-env
   REDIS_PASSWORD: ${REDIS_PASSWORD}
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: neurobox_postgres
-    restart: always
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-neurobox}
-      POSTGRES_USER: ${POSTGRES_USER:-neurobox}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    networks:
-      - nb_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neurobox}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: neurobox_redis
@@ -65,8 +47,6 @@ services:
       <<: *runtime-env
       ADMIN_API_PORT: "8092"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     ports:
@@ -88,8 +68,6 @@ services:
       <<: *runtime-env
       BACKEND_URL: ${BACKEND_URL:-http://backend:8092}
     depends_on:
-      postgres:
-        condition: service_healthy
       backend:
         condition: service_healthy
       redis:
@@ -110,8 +88,6 @@ services:
     environment:
       <<: *runtime-env
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       backend:
@@ -134,8 +110,6 @@ services:
       BACKEND_URL: ${BACKEND_URL:-http://backend:8092}
       ADMIN_PANEL_PORT: "8091"
     depends_on:
-      postgres:
-        condition: service_healthy
       backend:
         condition: service_healthy
     ports:
@@ -148,7 +122,6 @@ services:
       start_period: 10s
 
 volumes:
-  pg_data:
   redis_data:
 
 networks:
