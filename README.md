@@ -68,7 +68,8 @@ python -m bot.main
 ## Тесты
 
 ```bash
-docker compose exec bot pytest -q
+pytest tests/ -q --cov=shared --cov=services --cov-fail-under=75
+docker compose run --rm --entrypoint sh backend -lc "pip install -r requirements.txt -r requirements-dev.txt && pytest tests/ -q --cov=shared --cov=services --cov-fail-under=75"
 docker compose exec bot python /app/scripts/smoke_user_flow.py
 docker compose exec bot python /app/scripts/smoke_user_flow.py --with-contract-tests
 ```

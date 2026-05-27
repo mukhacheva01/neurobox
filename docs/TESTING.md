@@ -27,6 +27,12 @@ pytest tests/worker/test_jobs.py -q
 pytest tests/ -v --no-header
 ```
 
+Если нужен именно Docker-запуск тестов, используй отдельный ephemeral run, а не runtime-контейнеры `bot`/`backend`:
+
+```bash
+docker compose run --rm --entrypoint sh backend -lc "pip install -r requirements.txt -r requirements-dev.txt && pytest tests/ -q --cov=shared --cov=services --cov-fail-under=75"
+```
+
 Текущее покрытие: **75.27%** (1451 тест, все зелёные).
 
 ## Структура тестов

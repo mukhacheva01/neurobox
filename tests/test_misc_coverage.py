@@ -47,36 +47,48 @@ def _make_pool(fetchval_values=None):
 # ===========================================================================
 
 class TestAdminBackendClient:
-    def setup_method(self):
+    def test_base_url_uses_env_and_strips_trailing_slash(self):
         import services.admin.backend_client as m
-        m._client = None
 
-    def test_get_client_creates_instance(self):
-        import services.admin.backend_client as m
-        with patch.dict("os.environ", {"BACKEND_URL": "http://test-backend:9999"}):
-            client = m._get_client()
-        assert client is not None
-        assert str(client.base_url).rstrip("/") == "http://test-backend:9999"
+        with patch.dict("os.environ", {"BACKEND_URL": "http://test-backend:9999/"}):
+            assert m._base_url() == "http://test-backend:9999"
 
-    def test_get_client_returns_same_instance(self):
+    def test_base_url_has_default(self):
         import services.admin.backend_client as m
-        with patch.dict("os.environ", {"BACKEND_URL": "http://test-backend:9999"}):
-            c1 = m._get_client()
-            c2 = m._get_client()
-        assert c1 is c2
 
-    async def test_close_client_clears_instance(self):
-        import services.admin.backend_client as m
-        with patch.dict("os.environ", {"BACKEND_URL": "http://test:9999"}):
-            m._get_client()
-        await m.close_client()
-        assert m._client is None
+        with patch.dict("os.environ", {}, clear=True):
+            assert m._base_url() == "http://backend:8092"
 
-    async def test_close_client_noop_when_none(self):
+    def test_post_json_without_token(self):
         import services.admin.backend_client as m
-        m._client = None
-        await m.close_client()
-        assert m._client is None
+
+        mock_response = MagicMock()
+        with patch("services.admin.backend_client.httpx.post", return_value=mock_response) as mock_post:
+            result = m.post_json("/api/v1/admin/auth/login", payload={"login": "admin"})
+
+        assert result is mock_response
+        mock_post.assert_called_once_with(
+            "http://backend:8092/api/v1/admin/auth/login",
+            json={"login": "admin"},
+            headers={},
+            timeout=30.0,
+        )
+
+    def test_post_json_with_token_and_custom_timeout(self):
+        import services.admin.backend_client as m
+
+        mock_response = MagicMock()
+        with patch.dict("os.environ", {"BACKEND_URL": "http://admin-backend:9000"}):
+            with patch("services.admin.backend_client.httpx.post", return_value=mock_response) as mock_post:
+                result = m.post_json("/x", payload={"ok": True}, token="abc", timeout=5.0)
+
+        assert result is mock_response
+        mock_post.assert_called_once_with(
+            "http://admin-backend:9000/x",
+            json={"ok": True},
+            headers={"Authorization": "Bearer abc"},
+            timeout=5.0,
+        )
 
 
 # ===========================================================================

@@ -113,6 +113,20 @@ END
 """
 
 
+def _sync_routes_ops_runtime() -> None:
+    """Keep split route handlers compatible with legacy patch points in tests."""
+    routes_ops.get_conn = get_conn
+    routes_ops.log_action = log_action
+    routes_ops.render_template = render_template
+    routes_ops.flash = flash
+    routes_ops.redirect = redirect
+    routes_ops.request = request
+    routes_ops.url_for = url_for
+    routes_ops.admin_user_id = _admin_user_id
+    routes_ops.admin_ip = _admin_ip
+    routes_ops.sync_default_content_and_plans = _sync_default_content_and_plans
+
+
 def dashboard():
     period = request.args.get("period", "week").strip().lower()
     if period not in ("day", "week", "month"):
@@ -913,6 +927,7 @@ def user_detail(user_id):
 
 
 def audit_log():
+    _sync_routes_ops_runtime()
     return routes_ops.audit_log()
     action_filter = (request.args.get("action") or "").strip()
     entity_filter = (request.args.get("entity_type") or "").strip()
@@ -968,6 +983,7 @@ def audit_log():
 
 
 def feedback_list():
+    _sync_routes_ops_runtime()
     return routes_ops.feedback_list()
     status_filter = (request.args.get("status") or "").strip()
     conn = get_conn()
@@ -997,6 +1013,7 @@ def feedback_list():
 
 
 def feedback_action(feedback_id: int):
+    _sync_routes_ops_runtime()
     return routes_ops.feedback_action(feedback_id)
     action = (request.form.get("action") or "").strip()
     admin_note = (request.form.get("admin_note") or "").strip()[:2000]
@@ -1031,6 +1048,7 @@ def feedback_action(feedback_id: int):
 
 
 def content_texts():
+    _sync_routes_ops_runtime()
     return routes_ops.content_texts()
     conn = get_conn()
     try:
@@ -1068,6 +1086,7 @@ def content_texts():
 
 
 def tariffs_list():
+    _sync_routes_ops_runtime()
     return routes_ops.tariffs_list()
     conn = get_conn()
     try:
@@ -1128,6 +1147,7 @@ def _admin_ip():
 
 
 def user_action(user_id):
+    _sync_routes_ops_runtime()
     return routes_ops.user_action(user_id)
     action = request.form.get("action")
     conn = get_conn()

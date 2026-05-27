@@ -1881,7 +1881,7 @@ class TestLogAdminAudit:
         parsed = json.loads(params["details"])
         assert parsed["format"] == "csv"
 
-    async def test_bot_identifier_is_first_param(self):
+    async def test_admin_user_falls_back_to_tg_id(self):
         session = _make_mock_session()
         with _patch_session(session), patch("shared.config.settings") as m:
             m.bot_identifier = "mybot"
@@ -1894,7 +1894,7 @@ class TestLogAdminAudit:
                 details=None,
             )
         params = session.execute.call_args[0][1]
-        assert params["bot_identifier"] == "mybot"
+        assert params["admin_user"] == "1"
 
     async def test_action_is_second_param(self):
         session = _make_mock_session()

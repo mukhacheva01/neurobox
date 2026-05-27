@@ -254,7 +254,7 @@ class TestLoginLogout:
             mock_render.assert_called()
 
     def test_login_post_success(self, client):
-        fake_auth = {"id": 1, "login": "admin", "role": "owner", "otp_required": False}
+        fake_auth = {"id": 1, "login": "admin", "role": "owner", "otp_required": False, "token": "test-token"}
         with patch("services.admin.app.authenticate_admin", return_value=fake_auth):
             resp = client.post("/login", data={"login": "admin", "password": "correct"})
             # Should redirect to dashboard

@@ -84,7 +84,7 @@ def test_require_api_key_missing():
     import pytest
     with pytest.raises(HTTPException) as exc_info:
         require_api_key(None)
-    assert exc_info.value.status_code in (401, 503)
+    assert exc_info.value.status_code in (403, 503)
 
 
 def test_require_api_key_valid():
@@ -175,12 +175,12 @@ def test_admin_login_rate_limit():
     from services.backend.routers import admin as admin_router
     admin_router._LOGIN_ATTEMPTS.clear()
 
-    with patch("services.backend.routers.admin.authenticate_admin", return_value=None):
+    with patch.dict("os.environ", {"ADMIN_PANEL_PASSWORD": "correct-password", "ADMIN_PANEL_USER": "admin"}):
         client = TestClient(app, raise_server_exceptions=False)
         for _ in range(5):
             client.post("/api/v1/admin/auth/login", json={"login": "bad", "password": "bad"})
         resp = client.post("/api/v1/admin/auth/login", json={"login": "bad", "password": "bad"})
-    assert resp.status_code in (429, 401)
+    assert resp.status_code == 429
 
 
 def test_admin_login_success():
@@ -190,18 +190,21 @@ def test_admin_login_success():
     from services.backend.routers import admin as admin_router
     admin_router._LOGIN_ATTEMPTS.clear()
 
-    with patch("services.backend.routers.admin.authenticate_admin",
-               return_value={"id": 1, "login": "admin", "role": "owner", "tg_id": 12345}), \
+    with patch.dict("os.environ", {"ADMIN_PANEL_USER": "admin", "ADMIN_PANEL_PASSWORD": "correct"}), \
          patch("shared.config.settings") as mock_settings:
         mock_settings.admin_api_secret_key = "test-secret-key-32bytes"
         mock_settings.admin_api_token_ttl_sec = 3600
         mock_settings.admin_tg_id_list = [12345]
+        mock_settings.admin_panel_totp_secret = ""
+        mock_settings.admin_login = "admin"
+        mock_settings.admin_password = "correct"
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
             "/api/v1/admin/auth/login",
             json={"login": "admin", "password": "correct"},
         )
-    assert resp.status_code in (200, 422, 503)
+    assert resp.status_code == 200
+    assert resp.json()["token"]
 
 
 def test_admin_endpoint_no_auth():
@@ -210,7 +213,7 @@ def test_admin_endpoint_no_auth():
     from services.backend.main import app
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.get("/api/v1/admin/users")
-    assert resp.status_code in (401, 422, 503)
+    assert resp.status_code in (403, 422, 503)
 
 
 # ---------------------------------------------------------------------------
